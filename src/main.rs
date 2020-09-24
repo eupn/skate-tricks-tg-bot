@@ -470,7 +470,10 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                     match game.trick_by_number(trick_no) {
                         Some(trick) => {
                             if trick.edited {
-                                api.send(message.text_reply("Трюк уже переименовывался, больше нельзя.")).await?;
+                                api.send(
+                                    message.text_reply("Трюк уже переименовывался, больше нельзя."),
+                                )
+                                .await?;
                                 return Ok(());
                             }
 
