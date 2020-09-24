@@ -54,18 +54,8 @@ fn format_game_message(game: &Game) -> String {
 
     let mut leaderboard = game.participants.iter().collect::<Vec<_>>();
     leaderboard.sort_by(|(_, participant_a), (_, participant_b)| {
-        let num_tricks_b: usize = participant_b
-            .proofs
-            .clone()
-            .into_iter()
-            .map(|proof| proof.tricks_proven.len())
-            .sum();
-        let num_tricks_a: usize = participant_a
-            .proofs
-            .clone()
-            .into_iter()
-            .map(|proof| proof.tricks_proven.len())
-            .sum();
+        let num_tricks_b: usize = participant_b.num_tricks_proven();
+        let num_tricks_a: usize = participant_a.num_tricks_proven();
 
         num_tricks_b.cmp(&num_tricks_a)
     });
@@ -77,12 +67,7 @@ fn format_game_message(game: &Game) -> String {
             let proofs = if participant.proofs.is_empty() {
                 "".to_owned()
             } else {
-                let num_tricks: usize = participant
-                    .proofs
-                    .clone()
-                    .into_iter()
-                    .map(|proof| proof.tricks_proven.len())
-                    .sum();
+                let num_tricks: usize = participant.num_tricks_proven();
                 let proofs = participant
                     .proofs
                     .iter()

@@ -37,6 +37,16 @@ pub(crate) struct Participant {
     pub proofs: Vec<Proof>,
 }
 
+impl Participant {
+    pub fn num_tricks_proven(&self) -> usize {
+        self.proofs
+            .clone()
+            .into_iter()
+            .map(|proof| proof.tricks_proven.len())
+            .sum()
+    }
+}
+
 /// This object represents a Telegram user or bot.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub(crate) struct GameUser {
