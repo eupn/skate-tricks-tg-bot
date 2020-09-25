@@ -219,7 +219,9 @@ async fn add_proof(
                             return Ok(());
                         }
 
-                        let tricks_proven = game.prove_tricks(&sender, &message, not_proven_tricks).await;
+                        let tricks_proven = game
+                            .prove_tricks(&sender, &message, not_proven_tricks)
+                            .await;
                         if tricks_proven.is_empty() {
                             api.send(
                                 message.text_reply(
