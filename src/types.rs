@@ -134,7 +134,8 @@ impl Game {
         let mut participant = self.participants.values_mut().nth(participant_index);
         if let Some(ref mut participant) = &mut participant {
             if let Some(trick) = participant.tricks.get_mut(trick_index) {
-                std::mem::replace(
+                // Replace and discard the old value
+                let _ = std::mem::replace(
                     trick,
                     Trick {
                         name: new_name,
