@@ -96,7 +96,7 @@ impl Game {
             .map(|participant| participant.tricks.clone())
     }
 
-    pub fn add_trick(&mut self, participant: &User, trick: &str) {
+    pub async fn add_trick(&mut self, participant: &User, trick: &str) {
         let participant = self
             .participants
             .entry(participant.clone().into())
@@ -114,6 +114,8 @@ impl Game {
         if !self.is_started {
             self.is_started = true;
         }
+
+        self.save_game().await;
     }
 
     pub fn trick_by_number(&self, number: usize) -> Option<Trick> {
@@ -128,7 +130,7 @@ impl Game {
         participant.and_then(|participant| participant.tricks.get(trick_index).cloned())
     }
 
-    pub fn update_trick_name(&mut self, index: usize, new_name: String) {
+    pub async fn update_trick_name(&mut self, index: usize, new_name: String) {
         let participant_index = index / MAX_TRICKS;
         let trick_index = index % MAX_TRICKS;
         let mut participant = self.participants.values_mut().nth(participant_index);
@@ -144,9 +146,11 @@ impl Game {
                 );
             }
         }
+
+        self.save_game().await;
     }
 
-    pub fn prove_tricks(
+    pub async fn prove_tricks(
         &mut self,
         participant: &GameUser,
         message: &Message,
@@ -168,6 +172,8 @@ impl Game {
                 .proofs
                 .push(Proof::new(&message.clone().into(), tricks));
         });
+
+        self.save_game().await;
 
         trick_names
     }
@@ -206,6 +212,10 @@ impl Game {
 
     pub fn user_by_index(&self, index: usize) -> Option<GameUser> {
         self.participants.keys().nth(index).cloned()
+    }
+
+    pub async fn save_game(&self) {
+        let _ = tokio::fs::write("games.json", serde_json::to_string(&self).unwrap()).await;
     }
 }
 

@@ -144,6 +144,8 @@ async fn update_game_message(
         }
     }
 
+    game.save_game().await;
+
     Ok(())
 }
 
@@ -217,7 +219,7 @@ async fn add_proof(
                             return Ok(());
                         }
 
-                        let tricks_proven = game.prove_tricks(&sender, &message, not_proven_tricks);
+                        let tricks_proven = game.prove_tricks(&sender, &message, not_proven_tricks).await;
                         if tricks_proven.is_empty() {
                             api.send(
                                 message.text_reply(
@@ -305,6 +307,8 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                     .entry(message.chat.id().into())
                     .or_insert(Default::default());
                 *game = Default::default();
+
+                game.save_game().await;
             }
 
             "/trick" | "/трюк" => {
@@ -341,7 +345,7 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                             }
 
                             let trick = trick.trim();
-                            game.add_trick(&sender.clone().into(), trick);
+                            game.add_trick(&sender.clone().into(), trick).await;
 
                             let remaining_tricks = MAX_TRICKS - num_tricks - 1;
                             let footer = if remaining_tricks == 0 {
@@ -462,7 +466,7 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                                 return Ok(());
                             }
 
-                            game.update_trick_name(trick_index, new_trick_name);
+                            game.update_trick_name(trick_index, new_trick_name).await;
                             api.send(message.text_reply("Трюк переименован!")).await?;
 
                             update_game_message(&mut api, &message.chat, &mut game).await?;
@@ -536,8 +540,9 @@ async fn main() -> Result<(), Error> {
     // Load saved games
     {
         let mut games = GAMES.lock().await;
-        if let Ok(json) = std::fs::read_to_string("games.json") {
-            *games = serde_json::from_str(&json).unwrap_or(Default::default())
+        match std::fs::read_to_string("games.json") {
+            Ok(json) => *games = serde_json::from_str(&json).unwrap_or(Default::default()),
+            Err(e) => eprintln!("Failed to load saved games: {:?}", e),
         }
     }
 
