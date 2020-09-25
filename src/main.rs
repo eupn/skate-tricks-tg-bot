@@ -546,8 +546,11 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                         {
                             challenge_proof(&mut game, &mut api, &reply, &user, participant, proof)
                                 .await?;
-                            let _ = tokio::fs::write(SAVED_GAMES_FILE, serde_yaml::to_string(&*games).unwrap())
-                                .await;
+                            let _ = tokio::fs::write(
+                                SAVED_GAMES_FILE,
+                                serde_yaml::to_string(&*games).unwrap(),
+                            )
+                            .await;
                         } else {
                             api.send(message.text_reply(
                                 "Это сообщение не представляет собою доказательство трюка.",
@@ -670,7 +673,9 @@ async fn main() -> Result<(), Error> {
                                 let yes_no = data[0];
 
                                 let user: GameUser = cb.from.into();
-                                if challenge.voters.contains(&user) || !game.participants.contains_key(&user) {
+                                if challenge.voters.contains(&user)
+                                    || !game.participants.contains_key(&user)
+                                {
                                     return Ok(());
                                 }
                                 challenge.voters.insert(user.clone());
@@ -701,25 +706,38 @@ async fn main() -> Result<(), Error> {
 
                                 let not_tie = challenge.num_yes != challenge.num_no;
                                 if not_tie && challenge.voters.len() > game.participants.len() / 2 {
-                                    let result = if challenge.num_yes > challenge.num_no { (true, "✅ ПРИНЯТО") } else { (false, "❌ ПЕРЕДЕЛАТЬ") };
+                                    let result = if challenge.num_yes > challenge.num_no {
+                                        (true, "✅ ПРИНЯТО")
+                                    } else {
+                                        (false, "❌ ПЕРЕДЕЛАТЬ")
+                                    };
                                     let msg = format!(
                                         "На этом видео выполнены эти трюки: {}?\n\nВердикт:*{}*\n\n**Проголосовали: {}**\n\n{} 👍, {} 👎",
                                         tricks, result.1, voters, challenge.num_yes, challenge.num_no,
                                     );
-                                    api
-                                        .send(message.edit_text(msg).parse_mode(ParseMode::Markdown))
-                                        .await?;
+                                    api.send(
+                                        message.edit_text(msg).parse_mode(ParseMode::Markdown),
+                                    )
+                                    .await?;
 
                                     if !result.0 {
-                                        if let Some(participant) = game.participants.get_mut(&user) {
-                                            if let Some(idx) = participant.proofs.iter().position(|proof| *proof == challenge.proof) {
+                                        if let Some(participant) = game.participants.get_mut(&user)
+                                        {
+                                            if let Some(idx) = participant
+                                                .proofs
+                                                .iter()
+                                                .position(|proof| *proof == challenge.proof)
+                                            {
                                                 participant.proofs.remove(idx);
                                             }
 
-                                            api.send(MessageOrChannelPost::from(challenge.proof.msg.clone()).text_reply(
-                                                "Это доказательство удалено.",
-                                            ))
-                                                .await?;
+                                            api.send(
+                                                MessageOrChannelPost::from(
+                                                    challenge.proof.msg.clone(),
+                                                )
+                                                .text_reply("Это доказательство удалено."),
+                                            )
+                                            .await?;
                                             should_update_game_message = true;
                                         }
                                     }
@@ -730,9 +748,10 @@ async fn main() -> Result<(), Error> {
                                         "На этом видео выполнены эти трюки: {}?\n\n**Проголосовали: {}**",
                                         tricks, voters
                                     );
-                                    api
-                                        .send(message.edit_text(msg).parse_mode(ParseMode::Markdown))
-                                        .await?;
+                                    api.send(
+                                        message.edit_text(msg).parse_mode(ParseMode::Markdown),
+                                    )
+                                    .await?;
 
                                     let keyboard = build_poll_keyboard(
                                         challenge.poll_msg.chat_id,
@@ -753,8 +772,11 @@ async fn main() -> Result<(), Error> {
                             if should_update_game_message {
                                 update_game_message(&mut api.clone(), &message.chat, game).await?;
                             }
-                            let _ = tokio::fs::write(SAVED_GAMES_FILE, serde_yaml::to_string(&*games).unwrap())
-                                .await;
+                            let _ = tokio::fs::write(
+                                SAVED_GAMES_FILE,
+                                serde_yaml::to_string(&*games).unwrap(),
+                            )
+                            .await;
                         }
                     }
                 }
