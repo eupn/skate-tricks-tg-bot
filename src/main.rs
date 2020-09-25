@@ -426,15 +426,15 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                     return Ok(());
                 }
                 let trick_no = trick_no.unwrap();
-                let trick_index = trick_no - 1;
-                if trick_index == 0 {
+                if trick_no == 0 {
                     api.send(message.text_reply("Неверно указан номер трюка."))
                         .await?;
                     return Ok(());
                 }
 
+                let trick_index = trick_no - 1;
                 let mut games = GAMES.lock().await;
-                let game = games
+                let mut game = games
                     .entry(message.chat.id().into())
                     .or_insert(Default::default());
                 let participant_index = trick_index / MAX_TRICKS;
@@ -464,6 +464,8 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
 
                             game.update_trick_name(trick_index, new_trick_name);
                             api.send(message.text_reply("Трюк переименован!")).await?;
+
+                            update_game_message(&mut api, &message.chat, &mut game).await?;
                         }
                         None => {
                             api.send(message.text_reply("Трюк с указанным номером не найден!"))
