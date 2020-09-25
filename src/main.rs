@@ -145,8 +145,6 @@ async fn update_game_message(
         }
     }
 
-    game.save_game().await;
-
     Ok(())
 }
 
@@ -220,9 +218,7 @@ async fn add_proof(
                             return Ok(());
                         }
 
-                        let tricks_proven = game
-                            .prove_tricks(&sender, &message, not_proven_tricks)
-                            .await;
+                        let tricks_proven = game.prove_tricks(&sender, &message, not_proven_tricks);
                         if tricks_proven.is_empty() {
                             api.send(
                                 message.text_reply(
@@ -288,6 +284,48 @@ fn is_video(message: &Message) -> (bool, Option<String>) {
     }
 }
 
+async fn challenge_proof(
+    game: &mut Game,
+    api: &mut Api,
+    message: &Message,
+    user: &GameUser,
+    participant: Participant,
+    proof: Proof,
+) -> Result<(), Error> {
+    let tricks = proof
+        .tricks_proven
+        .iter()
+        .flat_map(|trick_no| game.trick_by_number(*trick_no))
+        .map(|trick| format!("\"{}\"", trick.name))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let mut msg = message.text_reply(format!("На этом видео выполнены эти трюки: {}?", tricks));
+
+    let inline_keyboard = build_poll_keyboard(
+        i64::from(message.chat.id()),
+        user.id,
+        proof.msg.id,
+        None,
+        None,
+    );
+
+    let msg = msg.reply_markup(inline_keyboard);
+
+    if let MessageOrChannelPost::Message(msg) = api.send(msg).await? {
+        game.proof_challenge = Some(ProofChallenge {
+            user: user.clone(),
+            participant,
+            proof,
+            poll_msg: msg.into(),
+            num_yes: 0,
+            num_no: 0,
+            voters: Default::default(),
+        });
+    }
+
+    Ok(())
+}
+
 async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
     let sender = &message.from;
 
@@ -310,8 +348,8 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                     .entry(message.chat.id().to_string())
                     .or_insert(Default::default());
                 *game = Default::default();
-
-                game.save_game().await;
+                let _ = tokio::fs::write(SAVED_GAMES_FILE, serde_yaml::to_string(&*games).unwrap())
+                    .await;
             }
 
             "/trick" | "/трюк" => {
@@ -348,7 +386,7 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                             }
 
                             let trick = trick.trim();
-                            game.add_trick(&sender.clone().into(), trick).await;
+                            game.add_trick(&sender.clone().into(), trick);
 
                             let remaining_tricks = MAX_TRICKS - num_tricks - 1;
                             let footer = if remaining_tricks == 0 {
@@ -475,7 +513,7 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                                 return Ok(());
                             }
 
-                            game.update_trick_name(trick_index, new_trick_name).await;
+                            game.update_trick_name(trick_index, new_trick_name);
                             api.send(message.text_reply("Трюк переименован!")).await?;
 
                             update_game_message(&mut api, &message.chat, &mut game).await?;
@@ -494,6 +532,32 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                 }
             }
 
+            "/challenge" => {
+                let mut games = GAMES.lock().await;
+                let mut game = games
+                    .entry(message.chat.id().to_string())
+                    .or_insert(Default::default());
+
+                if let Some(reply) = &message.reply_to_message {
+                    if let MessageOrChannelPost::Message(ref reply) = **reply {
+                        let msg: GameMessage = reply.clone().into();
+                        if let Some((user, participant, proof)) =
+                            game.find_participant_and_proof_by_msg(&msg)
+                        {
+                            challenge_proof(&mut game, &mut api, &reply, &user, participant, proof)
+                                .await?;
+                            let _ = tokio::fs::write(SAVED_GAMES_FILE, serde_yaml::to_string(&*games).unwrap())
+                                .await;
+                        } else {
+                            api.send(message.text_reply(
+                                "Это сообщение не представляет собою доказательство трюка.",
+                            ))
+                            .await?;
+                        }
+                    }
+                }
+            }
+
             _ => {
                 api.send(message.text_reply(
                     "Команда не опознана!\n\
@@ -502,7 +566,9 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                 /trick <трюк1, трюк2, трюк3> - добавить сразу несколько\n\
                 /edit <№трюка> <новое название> - редактировать трюк (не более одного раза)\n\
                 /proof - в комментарии к прикрепленному видео или в ответе на видео, \
-                чтобы приобщить его в качестве доказательства",
+                чтобы приобщить его в качестве доказательства\
+                /challenge - в комментарии к видео-доказательству чтобы запустить голосование \
+                против доказательства",
                 ))
                 .await?;
             }
@@ -575,13 +641,162 @@ async fn main() -> Result<(), Error> {
                 let _ = process_message(api.clone(), message).await;
             }
 
-            UpdateKind::Poll { .. } => {}
+            UpdateKind::CallbackQuery(cb) => {
+                if let Some(message) = cb.message {
+                    if let MessageOrChannelPost::Message(message) = message {
+                        let mut games = GAMES.lock().await;
+                        let game = games
+                            .entry(message.chat.id().to_string())
+                            .or_insert(Default::default());
+
+                        let tricks = if let Some(challenge) = &game.proof_challenge {
+                            challenge
+                                .proof
+                                .tricks_proven
+                                .iter()
+                                .flat_map(|trick_no| game.trick_by_number(*trick_no))
+                                .map(|trick| format!("\"{}\"", trick.name))
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        } else {
+                            "".to_owned()
+                        };
+
+                        let mut is_resolved = false;
+                        let mut should_update_game_message = false;
+                        if let Some(ref mut challenge) = game.proof_challenge {
+                            if let Some(data) = &cb.data {
+                                let data = data.split(",").collect::<Vec<_>>();
+                                let yes_no = data[0];
+
+                                let user: GameUser = cb.from.into();
+                                if challenge.voters.contains(&user) || !game.participants.contains_key(&user) {
+                                    return Ok(());
+                                }
+                                challenge.voters.insert(user.clone());
+
+                                match yes_no {
+                                    "yes" => {
+                                        challenge.num_yes += 1;
+                                    }
+                                    "no" => {
+                                        challenge.num_no += 1;
+                                    }
+
+                                    _ => return Ok(()),
+                                }
+
+                                let voters = challenge
+                                    .voters
+                                    .iter()
+                                    .map(|voter| {
+                                        if let Some(username) = &voter.username {
+                                            format!("{}(@{})", voter.first_name, username)
+                                        } else {
+                                            voter.first_name.clone()
+                                        }
+                                    })
+                                    .collect::<Vec<_>>()
+                                    .join(", ");
+
+                                let not_tie = challenge.num_yes != challenge.num_no;
+                                if not_tie && challenge.voters.len() > game.participants.len() / 2 {
+                                    let result = if challenge.num_yes > challenge.num_no { (true, "✅ ПРИНЯТО") } else { (false, "❌ ПЕРЕДЕЛАТЬ") };
+                                    let msg = format!(
+                                        "На этом видео выполнены эти трюки: {}?\n\nВердикт:*{}*\n\n**Проголосовали: {}**\n\n{} 👍, {} 👎",
+                                        tricks, result.1, voters, challenge.num_yes, challenge.num_no,
+                                    );
+                                    api
+                                        .send(message.edit_text(msg).parse_mode(ParseMode::Markdown))
+                                        .await?;
+
+                                    if !result.0 {
+                                        if let Some(participant) = game.participants.get_mut(&user) {
+                                            if let Some(idx) = participant.proofs.iter().position(|proof| *proof == challenge.proof) {
+                                                participant.proofs.remove(idx);
+                                            }
+
+                                            api.send(MessageOrChannelPost::from(challenge.proof.msg.clone()).text_reply(
+                                                "Это доказательство удалено.",
+                                            ))
+                                                .await?;
+                                            should_update_game_message = true;
+                                        }
+                                    }
+
+                                    is_resolved = true;
+                                } else {
+                                    let msg = format!(
+                                        "На этом видео выполнены эти трюки: {}?\n\n**Проголосовали: {}**",
+                                        tricks, voters
+                                    );
+                                    api
+                                        .send(message.edit_text(msg).parse_mode(ParseMode::Markdown))
+                                        .await?;
+
+                                    let keyboard = build_poll_keyboard(
+                                        challenge.poll_msg.chat_id,
+                                        challenge.user.id,
+                                        challenge.proof.msg.id,
+                                        Some(challenge.num_yes),
+                                        Some(challenge.num_no),
+                                    );
+
+                                    api.send(message.edit_reply_markup(Some(keyboard))).await?;
+                                }
+                            }
+                        }
+
+                        if is_resolved {
+                            game.proof_challenge = None;
+
+                            if should_update_game_message {
+                                update_game_message(&mut api.clone(), &message.chat, game).await?;
+                            }
+                            let _ = tokio::fs::write(SAVED_GAMES_FILE, serde_yaml::to_string(&*games).unwrap())
+                                .await;
+                        }
+                    }
+                }
+            }
 
             _ => (),
         }
     }
 
     Ok(())
+}
+
+fn build_poll_keyboard(
+    chat_id: i64,
+    user_id: i64,
+    proof_msg_id: i64,
+    num_yes: Option<usize>,
+    num_no: Option<usize>,
+) -> InlineKeyboardMarkup {
+    let yes_button_caption = format!(
+        "👍 Да{}",
+        if let Some(num_yes) = num_yes {
+            format!(" ({})", num_yes)
+        } else {
+            "".to_owned()
+        }
+    );
+    let yes_button_data = format!("yes,{},{},{}", chat_id, user_id, proof_msg_id);
+
+    let no_button_caption = format!(
+        "👎 Нет{}",
+        if let Some(num_no) = num_no {
+            format!(" ({})", num_no)
+        } else {
+            "".to_owned()
+        }
+    );
+    let no_button_data = format!("no,{},{},{}", chat_id, user_id, proof_msg_id);
+
+    reply_markup!(inline_keyboard,
+        [yes_button_caption callback yes_button_data, no_button_caption callback no_button_data]
+    )
 }
 
 fn crop_letters(s: &str, pos: usize) -> &str {

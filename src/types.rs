@@ -3,14 +3,15 @@ use serde::{Deserialize, Serialize};
 use telegram_bot::*;
 
 use crate::MAX_TRICKS;
+use indexmap::set::IndexSet;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct GameMessage {
     pub id: i64,
     pub chat_id: i64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct Proof {
     pub msg: GameMessage,
     pub tricks_proven: Vec<usize>, // Contains trick numbers
@@ -31,7 +32,7 @@ pub(crate) struct Trick {
     pub edited: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct Participant {
     pub tricks: Vec<Trick>,
     pub proofs: Vec<Proof>,
@@ -68,11 +69,23 @@ impl From<User> for GameUser {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct ProofChallenge {
+    pub participant: Participant,
+    pub user: GameUser,
+    pub proof: Proof,
+    pub poll_msg: GameMessage,
+    pub num_yes: usize,
+    pub num_no: usize,
+    pub voters: IndexSet<GameUser>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct Game {
     pub participants: IndexMap<GameUser, Participant>,
     pub game_message: Option<GameMessage>,
     pub is_started: bool,
+    pub proof_challenge: Option<ProofChallenge>,
 }
 
 impl Default for Game {
@@ -81,6 +94,7 @@ impl Default for Game {
             participants: Default::default(),
             game_message: None,
             is_started: false,
+            proof_challenge: Default::default(),
         }
     }
 }
@@ -96,7 +110,7 @@ impl Game {
             .map(|participant| participant.tricks.clone())
     }
 
-    pub async fn add_trick(&mut self, participant: &User, trick: &str) {
+    pub fn add_trick(&mut self, participant: &User, trick: &str) {
         let participant = self
             .participants
             .entry(participant.clone().into())
@@ -114,8 +128,6 @@ impl Game {
         if !self.is_started {
             self.is_started = true;
         }
-
-        self.save_game().await;
     }
 
     pub fn trick_by_number(&self, number: usize) -> Option<Trick> {
@@ -130,7 +142,7 @@ impl Game {
         participant.and_then(|participant| participant.tricks.get(trick_index).cloned())
     }
 
-    pub async fn update_trick_name(&mut self, index: usize, new_name: String) {
+    pub fn update_trick_name(&mut self, index: usize, new_name: String) {
         let participant_index = index / MAX_TRICKS;
         let trick_index = index % MAX_TRICKS;
         let mut participant = self.participants.values_mut().nth(participant_index);
@@ -146,11 +158,9 @@ impl Game {
                 );
             }
         }
-
-        self.save_game().await;
     }
 
-    pub async fn prove_tricks(
+    pub fn prove_tricks(
         &mut self,
         participant: &GameUser,
         message: &Message,
@@ -172,8 +182,6 @@ impl Game {
                 .proofs
                 .push(Proof::new(&message.clone().into(), tricks));
         });
-
-        self.save_game().await;
 
         trick_names
     }
@@ -214,8 +222,19 @@ impl Game {
         self.participants.keys().nth(index).cloned()
     }
 
-    pub async fn save_game(&self) {
-        let _ = tokio::fs::write("games.json", serde_json::to_string(&self).unwrap()).await;
+    pub fn find_participant_and_proof_by_msg(
+        &self,
+        src_message: &GameMessage,
+    ) -> Option<(GameUser, Participant, Proof)> {
+        self.participants.iter().find_map(|(user, participant)| {
+            participant
+                .proofs
+                .iter()
+                .find(|proof| {
+                    proof.msg.id == src_message.id && proof.msg.chat_id == src_message.chat_id
+                })
+                .map(|proof| (user.clone(), participant.clone(), proof.clone()))
+        })
     }
 }
 
