@@ -16,6 +16,7 @@ lazy_static! {
 }
 
 const MAX_TRICKS: usize = 3;
+const SAVED_GAMES_FILE: &str = "games.yaml";
 
 fn format_game_message(game: &Game) -> String {
     let participants = game
@@ -375,6 +376,8 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                 }
 
                 update_game_message(&mut api, &message.chat, &mut game).await?;
+                let _ = tokio::fs::write(SAVED_GAMES_FILE, serde_yaml::to_string(&*games).unwrap())
+                    .await;
             }
 
             "/proof" | "/пруф" => {
@@ -404,6 +407,10 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                         &mut game,
                     )
                     .await?;
+
+                    let _ =
+                        tokio::fs::write(SAVED_GAMES_FILE, serde_yaml::to_string(&*games).unwrap())
+                            .await;
                 } else {
                     add_proof(
                         false,
@@ -472,6 +479,11 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                             api.send(message.text_reply("Трюк переименован!")).await?;
 
                             update_game_message(&mut api, &message.chat, &mut game).await?;
+                            let _ = tokio::fs::write(
+                                SAVED_GAMES_FILE,
+                                serde_yaml::to_string(&*games).unwrap(),
+                            )
+                            .await;
                         }
                         None => {
                             api.send(message.text_reply("Трюк с указанным номером не найден!"))
@@ -528,6 +540,10 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                     &mut game,
                 )
                 .await?;
+
+                update_game_message(&mut api, &message.chat, &mut game).await?;
+                let _ = tokio::fs::write(SAVED_GAMES_FILE, serde_yaml::to_string(&*games).unwrap())
+                    .await;
             }
             _ => (),
         }
@@ -542,8 +558,8 @@ async fn main() -> Result<(), Error> {
     // Load saved games
     {
         let mut games = GAMES.lock().await;
-        match std::fs::read_to_string("games.json") {
-            Ok(json) => *games = serde_json::from_str(&json).unwrap_or(Default::default()),
+        match std::fs::read_to_string(SAVED_GAMES_FILE) {
+            Ok(json) => *games = serde_yaml::from_str(&json).unwrap_or(Default::default()),
             Err(e) => eprintln!("Failed to load saved games: {:?}", e),
         }
     }
