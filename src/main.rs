@@ -12,7 +12,7 @@ mod types;
 use types::*;
 
 lazy_static! {
-    static ref GAMES: Mutex<HashMap<i64, Game>> = Mutex::new(Default::default());
+    static ref GAMES: Mutex<HashMap<String, Game>> = Mutex::new(Default::default());
 }
 
 const MAX_TRICKS: usize = 3;
@@ -306,7 +306,7 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
             "/reset" => {
                 let mut games = GAMES.lock().await;
                 let game = games
-                    .entry(message.chat.id().into())
+                    .entry(message.chat.id().to_string())
                     .or_insert(Default::default());
                 *game = Default::default();
 
@@ -316,7 +316,7 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
             "/trick" | "/трюк" => {
                 let mut games = GAMES.lock().await;
                 let mut game = games
-                    .entry(message.chat.id().into())
+                    .entry(message.chat.id().to_string())
                     .or_insert(Default::default());
 
                 match game.participant_tricks(&sender.clone().into()) {
@@ -380,7 +380,7 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
             "/proof" | "/пруф" => {
                 let mut games = GAMES.lock().await;
                 let mut game = games
-                    .entry(message.chat.id().into())
+                    .entry(message.chat.id().to_string())
                     .or_insert(Default::default());
                 let (msg, should_accept) = message
                     .clone()
@@ -441,7 +441,7 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                 let trick_index = trick_no - 1;
                 let mut games = GAMES.lock().await;
                 let mut game = games
-                    .entry(message.chat.id().into())
+                    .entry(message.chat.id().to_string())
                     .or_insert(Default::default());
                 let participant_index = trick_index / MAX_TRICKS;
                 if let Some(user) = game.user_by_index(participant_index) {
@@ -517,7 +517,7 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
             "/proof" | "/пруф" => {
                 let mut games = GAMES.lock().await;
                 let mut game = games
-                    .entry(message.chat.id().into())
+                    .entry(message.chat.id().to_string())
                     .or_insert(Default::default());
                 add_proof(
                     true,
