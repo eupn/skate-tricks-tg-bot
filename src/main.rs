@@ -569,7 +569,7 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                 /trick <трюк1, трюк2, трюк3> - добавить сразу несколько\n\
                 /edit <№трюка> <новое название> - редактировать трюк (не более одного раза)\n\
                 /proof - в комментарии к прикрепленному видео или в ответе на видео, \
-                чтобы приобщить его в качестве доказательства\
+                чтобы приобщить его в качестве доказательства\n\
                 /challenge - в комментарии к видео-доказательству чтобы запустить голосование \
                 против доказательства",
                 ))
@@ -704,9 +704,8 @@ async fn main() -> Result<(), Error> {
                                     .collect::<Vec<_>>()
                                     .join(", ");
 
-                                let not_tie = challenge.num_yes != challenge.num_no;
-                                if not_tie && challenge.voters.len() > game.participants.len() / 2 {
-                                    let result = if challenge.num_yes > challenge.num_no {
+                                if challenge.voters.len() > game.participants.len() / 2 {
+                                    let result = if challenge.num_yes >= challenge.num_no {
                                         (true, "✅ ПРИНЯТО")
                                     } else {
                                         (false, "❌ ПЕРЕДЕЛАТЬ")
