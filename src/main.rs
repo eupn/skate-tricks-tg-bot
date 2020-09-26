@@ -501,6 +501,13 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                 challenge::process_challenge_command(&mut games, &mut api, &message).await?;
             }
 
+            "/random" => {
+                let trick = commands::randomtrick::get();
+                api.send(message.text_reply(format!("🎲 Случайный трюк: `{}`", trick)).parse_mode(ParseMode::Markdown))
+                    .await?;
+                return Ok(());
+            }
+
             _ => {
                 api.send(message.text_reply(
                     "Команда не опознана!\n\
@@ -511,7 +518,8 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                 /proof - в комментарии к прикрепленному видео или в ответе на видео, \
                 чтобы приобщить его в качестве доказательства\n\
                 /challenge - в комментарии к видео-доказательству чтобы запустить голосование \
-                против доказательства",
+                против доказательства\n\
+                /random - сгенерировать случайный трюк",
                 ))
                 .await?;
             }
