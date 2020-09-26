@@ -20,11 +20,12 @@ pub(crate) async fn process_challenge_command(
             if let Some((user, participant, proof)) = game.find_participant_and_proof_by_msg(&msg) {
                 if let Some(challenge) = &game.proof_challenge {
                     api.send(message.text_reply(
-                        format!("Голосование по трюку [уже в процессе](https://t.me/c/{chat_id}/{message_id}). Нужно дождаться его завершения.",
-                                chat_id = crop_letters(&challenge.poll_msg.chat_id.to_string(), 4),
-                                message_id = challenge.poll_msg.id
+                        format!("Голосование по трюку [уже в процессе](https://t.me/c/{chat_id}/{message_id}). \
+                        Нужно дождаться его завершения.",
+                            chat_id = crop_letters(&challenge.poll_msg.chat_id.to_string(), 4),
+                            message_id = challenge.poll_msg.id
                         ),
-                    ))
+                    ).parse_mode(ParseMode::MarkdownV2))
                     .await?;
 
                     return Ok(());
