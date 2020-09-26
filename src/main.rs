@@ -695,11 +695,7 @@ async fn main() -> Result<(), Error> {
                                     .voters
                                     .iter()
                                     .map(|voter| {
-                                        if let Some(username) = &voter.username {
-                                            format!("{}(@{})", voter.first_name, username)
-                                        } else {
-                                            voter.first_name.clone()
-                                        }
+                                        format!("[{}](tg://user?id={})", voter.first_name, voter.id)
                                     })
                                     .collect::<Vec<_>>()
                                     .join(", ");
@@ -711,11 +707,11 @@ async fn main() -> Result<(), Error> {
                                         (false, "❌ ПЕРЕДЕЛАТЬ")
                                     };
                                     let msg = format!(
-                                        "На этом видео выполнены эти трюки: {}?\n\nВердикт:*{}*\n\n**Проголосовали: {}**\n\n{} 👍, {} 👎",
+                                        "На этом видео выполнены эти трюки: {}?\n\nВердикт:*{}*\n\n_Проголосовали: {}_\n\n{} 👍, {} 👎",
                                         tricks, result.1, voters, challenge.num_yes, challenge.num_no,
                                     );
                                     api.send(
-                                        message.edit_text(msg).parse_mode(ParseMode::Markdown),
+                                        message.edit_text(msg).parse_mode(ParseMode::MarkdownV2),
                                     )
                                     .await?;
 
