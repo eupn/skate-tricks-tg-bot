@@ -170,11 +170,13 @@ async fn add_proof(
 ) -> Result<(), Error> {
     if game.started() {
         if game.participant_tricks(&sender).is_some() {
-            if let Some((user, _, _)) = game.find_participant_and_proof_by_msg(&message.clone().into()) {
+            if let Some((user, _, _)) =
+                game.find_participant_and_proof_by_msg(&message.clone().into())
+            {
                 if user.id != sender.id {
                     api.send(message.text_reply("Это видео уже добавлено другим участником."))
                         .await?;
-                    return Ok(())
+                    return Ok(());
                 }
             }
 
@@ -682,7 +684,8 @@ async fn main() -> Result<(), Error> {
 
                                 let user: GameUser = cb.from.clone().into();
                                 if !game.participants.contains_key(&user) {
-                                    api.send(cb.answer("Голосовать могут только участники игры.")).await?;
+                                    api.send(cb.answer("Голосовать могут только участники игры."))
+                                        .await?;
                                     return Ok(());
                                 }
 
