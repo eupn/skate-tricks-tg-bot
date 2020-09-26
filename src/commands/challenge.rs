@@ -25,7 +25,7 @@ pub(crate) async fn process_challenge_command(
                             chat_id = crop_letters(&challenge.poll_msg.chat_id.to_string(), 4),
                             message_id = challenge.poll_msg.id
                         ),
-                    ).parse_mode(ParseMode::MarkdownV2))
+                    ).parse_mode(ParseMode::Markdown))
                     .await?;
 
                     return Ok(());
