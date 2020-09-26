@@ -170,6 +170,14 @@ async fn add_proof(
 ) -> Result<(), Error> {
     if game.started() {
         if game.participant_tricks(&sender).is_some() {
+            if let Some((user, _, _)) = game.find_participant_and_proof_by_msg(&message.clone().into()) {
+                if user.id != sender.id {
+                    api.send(message.text_reply("Это видео уже добавлено другим участником."))
+                        .await?;
+                    return Ok(())
+                }
+            }
+
             if should_accept {
                 if game.proof_exists(sender, message) {
                     api.send(message.text_reply("Это видео уже добавлено."))
@@ -645,7 +653,7 @@ async fn main() -> Result<(), Error> {
             }
 
             UpdateKind::CallbackQuery(cb) => {
-                if let Some(message) = cb.message {
+                if let Some(message) = &cb.message {
                     if let MessageOrChannelPost::Message(message) = message {
                         let mut games = GAMES.lock().await;
                         let game = games
@@ -672,10 +680,14 @@ async fn main() -> Result<(), Error> {
                                 let data = data.split(",").collect::<Vec<_>>();
                                 let yes_no = data[0];
 
-                                let user: GameUser = cb.from.into();
-                                if challenge.voters.contains(&user)
-                                    || !game.participants.contains_key(&user)
-                                {
+                                let user: GameUser = cb.from.clone().into();
+                                if !game.participants.contains_key(&user) {
+                                    api.send(cb.answer("Голосовать могут только участники игры.")).await?;
+                                    return Ok(());
+                                }
+
+                                if challenge.voters.contains(&user) {
+                                    api.send(cb.answer("Ты уже проголосовал.")).await?;
                                     return Ok(());
                                 }
                                 challenge.voters.insert(user.clone());
@@ -690,6 +702,8 @@ async fn main() -> Result<(), Error> {
 
                                     _ => return Ok(()),
                                 }
+
+                                api.send(cb.answer("Твой голос принят.")).await?;
 
                                 let voters = challenge
                                     .voters
