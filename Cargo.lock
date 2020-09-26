@@ -1159,6 +1159,7 @@ dependencies = [
  "futures",
  "indexmap",
  "lazy_static",
+ "rand 0.7.3",
  "serde",
  "serde_json",
  "serde_yaml",
