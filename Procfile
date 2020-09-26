@@ -1,1 +1,1 @@
-worker: TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN ./target/release/skate-tg-bot
+worker: TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN DROPBOX_OAUTH_TOKEN=$DROPBOX_OAUTH_TOKEN ./target/release/skate-tg-bot

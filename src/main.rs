@@ -11,12 +11,13 @@ use tokio::sync::Mutex;
 mod types;
 use types::*;
 
+mod dropbox;
+
 lazy_static! {
     static ref GAMES: Mutex<HashMap<String, Game>> = Mutex::new(Default::default());
 }
 
 const MAX_TRICKS: usize = 3;
-const SAVED_GAMES_FILE: &str = "games.yaml";
 
 fn format_game_message(game: &Game) -> String {
     let participants = game
@@ -358,8 +359,7 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                     .entry(message.chat.id().to_string())
                     .or_insert(Default::default());
                 *game = Default::default();
-                let _ = tokio::fs::write(SAVED_GAMES_FILE, serde_yaml::to_string(&*games).unwrap())
-                    .await;
+                dropbox::save_games(&games).await;
             }
 
             "/trick" | "/трюк" => {
@@ -424,8 +424,7 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                 }
 
                 update_game_message(&mut api, &message.chat, &mut game).await?;
-                let _ = tokio::fs::write(SAVED_GAMES_FILE, serde_yaml::to_string(&*games).unwrap())
-                    .await;
+                dropbox::save_games(&games).await;
             }
 
             "/proof" | "/пруф" => {
@@ -456,9 +455,7 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                     )
                     .await?;
 
-                    let _ =
-                        tokio::fs::write(SAVED_GAMES_FILE, serde_yaml::to_string(&*games).unwrap())
-                            .await;
+                    dropbox::save_games(&games).await;
                 } else {
                     add_proof(
                         false,
@@ -527,11 +524,7 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                             api.send(message.text_reply("Трюк переименован!")).await?;
 
                             update_game_message(&mut api, &message.chat, &mut game).await?;
-                            let _ = tokio::fs::write(
-                                SAVED_GAMES_FILE,
-                                serde_yaml::to_string(&*games).unwrap(),
-                            )
-                            .await;
+                            dropbox::save_games(&games).await;
                         }
                         None => {
                             api.send(message.text_reply("Трюк с указанным номером не найден!"))
@@ -556,11 +549,7 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                         {
                             challenge_proof(&mut game, &mut api, &reply, &user, participant, proof)
                                 .await?;
-                            let _ = tokio::fs::write(
-                                SAVED_GAMES_FILE,
-                                serde_yaml::to_string(&*games).unwrap(),
-                            )
-                            .await;
+                            dropbox::save_games(&games).await;
                         } else {
                             api.send(message.text_reply(
                                 "Это сообщение не представляет собою доказательство трюка.",
@@ -621,8 +610,7 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                 .await?;
 
                 update_game_message(&mut api, &message.chat, &mut game).await?;
-                let _ = tokio::fs::write(SAVED_GAMES_FILE, serde_yaml::to_string(&*games).unwrap())
-                    .await;
+                dropbox::save_games(&games).await;
             }
             _ => (),
         }
@@ -637,10 +625,7 @@ async fn main() -> Result<(), Error> {
     // Load saved games
     {
         let mut games = GAMES.lock().await;
-        match std::fs::read_to_string(SAVED_GAMES_FILE) {
-            Ok(json) => *games = serde_yaml::from_str(&json).unwrap_or(Default::default()),
-            Err(e) => eprintln!("Failed to load saved games: {:?}", e),
-        }
+        *games = dropbox::load_games().await;
     }
 
     let api = Api::new(token);
@@ -784,11 +769,7 @@ async fn main() -> Result<(), Error> {
                             if should_update_game_message {
                                 update_game_message(&mut api.clone(), &message.chat, game).await?;
                             }
-                            let _ = tokio::fs::write(
-                                SAVED_GAMES_FILE,
-                                serde_yaml::to_string(&*games).unwrap(),
-                            )
-                            .await;
+                            dropbox::save_games(&games).await;
                         }
                     }
                 }
