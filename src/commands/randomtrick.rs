@@ -48,6 +48,10 @@ lazy_static! {
         Chance::of("fs", 50), Chance::of("bs", 50),
     ];
 
+    static ref MORE_SPEED: [Chance; 2] = [
+        Chance::of("", 75), Chance::of("(на ходах)", 25),
+    ];
+
     static ref TRICKS: Vec<Chance> = vec![
         // Slides & Grinds with regular stance
         Chance::of("boardslide", 15).requires(&*SIDES),
@@ -55,12 +59,12 @@ lazy_static! {
         Chance::of("5-0", 10).requires(&*SIDES),
 
         // Flips
-        Chance::of("kickflip", 25).requires(&*STANCES),
-        Chance::of("heelflip", 25).requires(&*STANCES),
+        Chance::of("kickflip", 25).requires(&*STANCES).requires(&*MORE_SPEED),
+        Chance::of("heelflip", 25).requires(&*STANCES).requires(&*MORE_SPEED),
 
         // Rotations
-        Chance::of("180", 35).requires(&*SIDES),
-        Chance::of("shove-it", 40).requires(&*SIDES).requires(&*STANCES),
+        Chance::of("180", 35).requires(&*SIDES).requires(&*MORE_SPEED),
+        Chance::of("shove-it", 40).requires(&*SIDES).requires(&*STANCES).requires(&*MORE_SPEED),
     ];
 }
 
