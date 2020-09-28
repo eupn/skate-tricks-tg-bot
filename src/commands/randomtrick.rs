@@ -16,12 +16,12 @@ impl Chance {
         }
     }
 
-    pub fn requires(&mut self, chances: &[Chance]) -> Self {
+    pub fn with(&mut self, chances: &[Chance]) -> Self {
         if self.requires.is_empty() {
             self.requires = chances.to_vec();
         } else {
             for requirement in &mut self.requires {
-                *requirement = requirement.requires(chances);
+                *requirement = requirement.with(chances);
             }
         }
 
@@ -54,17 +54,20 @@ lazy_static! {
 
     static ref TRICKS: Vec<Chance> = vec![
         // Slides & Grinds with regular stance
-        Chance::of("boardslide", 15).requires(&*SIDES),
-        Chance::of("50-50", 15).requires(&*SIDES),
-        Chance::of("5-0", 10).requires(&*SIDES),
+        Chance::of("boardslide", 15).with(&*SIDES),
+        Chance::of("50-50", 15).with(&*SIDES),
+        Chance::of("5-0", 10).with(&*SIDES),
 
         // Flips
-        Chance::of("kickflip", 25).requires(&*STANCES).requires(&*MORE_SPEED),
-        Chance::of("heelflip", 25).requires(&*STANCES).requires(&*MORE_SPEED),
+        Chance::of("kickflip", 25).with(&*STANCES).with(&*MORE_SPEED),
+        Chance::of("heelflip", 25).with(&*STANCES).with(&*MORE_SPEED),
 
         // Rotations
-        Chance::of("180", 35).requires(&*SIDES).requires(&*MORE_SPEED),
-        Chance::of("shove-it", 40).requires(&*SIDES).requires(&*STANCES).requires(&*MORE_SPEED),
+        Chance::of("180", 30).with(&*SIDES).with(&*MORE_SPEED),
+        Chance::of("shove-it", 40).with(&*SIDES).with(&*STANCES).with(&*MORE_SPEED),
+
+        // Misc
+        Chance::of("no-comply 180", 10),
     ];
 }
 
