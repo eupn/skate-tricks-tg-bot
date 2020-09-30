@@ -38,7 +38,7 @@ fn format_game_message(game: &Game) -> String {
                         "{}. {}{}",
                         participant_index * MAX_TRICKS + i + 1,
                         if trick.edited { "📝" } else { "" },
-                        remove_markdown(&trick.name)
+                        escape_markdown(&trick.name)
                     )
                 })
                 .collect::<Vec<String>>()
@@ -46,11 +46,11 @@ fn format_game_message(game: &Game) -> String {
 
             format!(
                 "🛹 {firstname} {name}\n{tricks}",
-                firstname = remove_markdown(&participant_user.first_name),
+                firstname = escape_markdown(&participant_user.first_name),
                 name = participant_user
                     .username
                     .clone()
-                    .map(|username| format!("@{} ", username))
+                    .map(|username| format!("@{} ", escape_markdown(&username)))
                     .unwrap_or("".to_owned()),
                 tricks = tricks,
             )
@@ -93,11 +93,11 @@ fn format_game_message(game: &Game) -> String {
             format!(
                 "{}. {firstname} {name}{proofs}",
                 i + 1,
-                firstname = remove_markdown(&user.first_name),
+                firstname = escape_markdown(&user.first_name),
                 name = user
                     .username
                     .clone()
-                    .map(|username| format!("@{} ", username))
+                    .map(|username| format!("@{} ", escape_markdown(&username)))
                     .unwrap_or("".to_owned()),
                 proofs = proofs,
             )
@@ -616,13 +616,14 @@ pub(crate) fn crop_letters(s: &str, pos: usize) -> &str {
     }
 }
 
-fn remove_markdown(s: &str) -> String {
-    let s = s.replace('*', "");
-    let s = s.replace('[', "");
-    let s = s.replace(']', "");
-    let s = s.replace('~', "");
-    let s = s.replace('`', "");
-    let s = s.replace('(', "");
-    let s = s.replace(')', "");
+fn escape_markdown(s: &str) -> String {
+    let s = s.replace('*', "\\*");
+    let s = s.replace('[', "\\[");
+    let s = s.replace(']', "\\]");
+    let s = s.replace('~', "\\~");
+    let s = s.replace('`', "\\`");
+    let s = s.replace('(', "\\(");
+    let s = s.replace(')', "\\)");
+    let s = s.replace('_', "\\_");
     s
 }
