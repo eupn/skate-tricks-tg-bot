@@ -1,3 +1,5 @@
+use std::hash::{Hash, Hasher};
+
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use telegram_bot::*;
@@ -49,7 +51,7 @@ impl Participant {
 }
 
 /// This object represents a Telegram user or bot.
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, Serialize, Deserialize)]
 pub(crate) struct GameUser {
     /// User's ID.
     pub id: i64,
@@ -57,6 +59,22 @@ pub(crate) struct GameUser {
     pub first_name: String,
     /// User‘s or bot’s username.
     pub username: Option<String>,
+}
+
+impl PartialEq for GameUser {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+
+    fn ne(&self, other: &Self) -> bool {
+        self.id != other.id
+    }
+}
+
+impl Hash for GameUser {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_i64(self.id);
+    }
 }
 
 impl From<User> for GameUser {
