@@ -516,14 +516,22 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
 
             "/random" => {
                 let trick = commands::randomtrick::get();
-                let msg = api.send(message.text_reply(format!("🎲 Случайный трюк: `{}`", trick)).parse_mode(ParseMode::Markdown))
+                let msg = api
+                    .send(
+                        message
+                            .text_reply(format!("🎲 Случайный трюк: `{}`", trick))
+                            .parse_mode(ParseMode::Markdown),
+                    )
                     .await?;
 
                 for _ in 0..5usize {
                     let trick = commands::randomtrick::get();
                     tokio::time::delay_for(Duration::from_millis(250)).await;
-                    api.send(msg.edit_text(format!("🎲 Случайный трюк: `{}`", trick))
-                        .parse_mode(ParseMode::Markdown)).await?;
+                    api.send(
+                        msg.edit_text(format!("🎲 Случайный трюк: `{}`", trick))
+                            .parse_mode(ParseMode::Markdown),
+                    )
+                    .await?;
                 }
 
                 return Ok(());

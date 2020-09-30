@@ -33,7 +33,9 @@ impl Chance {
             return self.what.clone();
         } else {
             let req_resolved = from_chances(&self.requires);
-            format!("{} {}", req_resolved, self.what).trim().replace("  ", " ")
+            format!("{} {}", req_resolved, self.what)
+                .trim()
+                .replace("  ", " ")
         }
     }
 }
@@ -73,7 +75,9 @@ lazy_static! {
 
 fn from_chances(chances: &[Chance]) -> String {
     let mut rng = rand::thread_rng();
-    let result = chances.choose_weighted(&mut rng, |chance| chance.chance_percent).unwrap();
+    let result = chances
+        .choose_weighted(&mut rng, |chance| chance.chance_percent)
+        .unwrap();
 
     result.resolve()
 }
