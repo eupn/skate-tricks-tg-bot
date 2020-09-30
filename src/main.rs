@@ -316,6 +316,12 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
 
         match command.to_lowercase().as_str() {
             "/reset" => {
+                if let Some(username) = &sender.username {
+                    if username != "eupn1337" {
+                        return Ok(())
+                    }
+                }
+
                 let mut games = GAMES.lock().await;
                 let game = games
                     .entry(message.chat.id().to_string())
