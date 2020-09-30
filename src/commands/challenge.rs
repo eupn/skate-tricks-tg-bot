@@ -100,7 +100,6 @@ pub(crate) async fn process_callback_query(
                     }
 
                     api.send(cb.answer("Твой голос принят.")).await?;
-                    dropbox::save_games(&games).await;
 
                     let voters = challenge
                         .voters
@@ -169,8 +168,9 @@ pub(crate) async fn process_callback_query(
                 if should_update_game_message {
                     update_game_message(&mut api.clone(), &message.chat, game).await?;
                 }
-                dropbox::save_games(&games).await;
             }
+
+            dropbox::save_games(&games).await;
         }
     }
 
