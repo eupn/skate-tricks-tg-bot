@@ -146,7 +146,7 @@ pub(crate) async fn process_callback_query(
                             "На этом видео выполнены эти трюки: {}?\n\n_Проголосовали: {}_",
                             tricks, voters
                         );
-                        api.send(message.edit_text(msg).parse_mode(ParseMode::Markdown))
+                        api.send(message.edit_text(msg).parse_mode(ParseMode::MarkdownV2))
                             .await?;
 
                         let keyboard = build_poll_keyboard(
