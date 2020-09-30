@@ -317,17 +317,23 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
         match command.to_lowercase().as_str() {
             "/reset" => {
                 if let Some(username) = &sender.username {
-                    if username != "eupn1337" {
-                        return Ok(())
+                    if username == "eupn1337" {
+                        let mut games = GAMES.lock().await;
+                        let game = games
+                            .entry(message.chat.id().to_string())
+                            .or_insert(Default::default());
+                        *game = Default::default();
+                        dropbox::save_games(&games).await;
                     }
                 }
+            }
 
+            "/repin" => {
                 let mut games = GAMES.lock().await;
-                let game = games
+                let mut game = games
                     .entry(message.chat.id().to_string())
                     .or_insert(Default::default());
-                *game = Default::default();
-                dropbox::save_games(&games).await;
+                update_game_message(&mut api, &message.chat, &mut game).await?;
             }
 
             "/trick" | "/трюк" => {
