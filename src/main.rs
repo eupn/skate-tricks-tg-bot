@@ -475,7 +475,7 @@ async fn process_message(mut api: Api, message: Message) -> Result<(), Error> {
                         api.send(message.text_reply(format!(
                             "Можно переименовывать только свои трюки ({}).",
                             (trick_index..(trick_index + MAX_TRICKS)).into_iter()
-                                .map(|n| format!("№{}", n))
+                                .map(|n| format!("№{}", n + 1))
                                 .collect::<Vec<_>>()
                                 .join(", ")
                         )))
